@@ -116,8 +116,14 @@ def run_benchmarks():
 def save_csv(results: list[ScenarioResult], path="results.csv"):
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["db", "scenario", "run_1", "run_2", "run_3",
-                         "run_4", "run_5", "mean_ms", "std_ms"])
+        writer.writerow([
+            "db", "scenario",
+            "run_1", "run_2", "run_3", "run_4", "run_5",
+            "mean_ms", "std_ms", "min_ms", "max_ms",
+            "p95_ms", "p99_ms",
+            "throughput_rows_per_sec",
+            "cpu_percent", "memory_delta_mb"
+        ])
         for r in results:
             runs = r.runs + [None] * (5 - len(r.runs))
             writer.writerow([
@@ -125,6 +131,13 @@ def save_csv(results: list[ScenarioResult], path="results.csv"):
                 *[f"{x:.3f}" if x is not None else "" for x in runs],
                 f"{r.mean:.3f}",
                 f"{r.stdev:.3f}",
+                f"{r.min_ms:.3f}",
+                f"{r.max_ms:.3f}",
+                f"{r.p95:.3f}",
+                f"{r.p99:.3f}",
+                f"{r.throughput:.1f}",
+                f"{r.cpu_percent or 0:.1f}",
+                f"{r.memory_delta_mb or 0:.2f}",
             ])
     print(f"\\nResults saved to {path}")
 
@@ -141,6 +154,25 @@ def print_summary(results: list[ScenarioResult]):
     print("="*80)
 
 # ---------------------------------------------------------------------------
+# Print scalability information
+# ---------------------------------------------------------------------------
+
+def print_scalability(results: list[ScenarioResult]):
+    print("\n=== Scalability Factor (INSERT latency growth) ===")
+    for db in ["MySQL", "PostgreSQL", "SQLite"]:
+        r1k   = next((r for r in results if r.db.lower() == db.lower() 
+                      and r.scenario == "bulk_insert_1000"), None)
+        r10k  = next((r for r in results if r.db.lower() == db.lower() 
+                      and r.scenario == "bulk_insert_10000"), None)
+        r100k = next((r for r in results if r.db.lower() == db.lower() 
+                      and r.scenario == "bulk_insert_100000"), None)
+        if r1k and r10k and r100k:
+            f1  = r10k.mean  / r1k.mean   # 1K → 10K (10x data)
+            f2  = r100k.mean / r10k.mean  # 10K → 100K (10x data)
+            print(f"  {db:<14s}  1K→10K: {f1:.2f}x  |  10K→100K: {f2:.2f}x  "
+                  f"(linear would be 10.00x)")
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -153,5 +185,6 @@ if __name__ == "__main__":
     measure_all_connections()
     results = run_benchmarks()
     print_summary(results)
+    print_scalability(results)
     save_csv(results)
     print("\\nDone! Run report.py to generate charts.")

@@ -1,1 +1,1 @@
-{"caption": "Read query benchmark", "description": "Grouped bar chart comparing SELECT, JOIN and aggregation latency across the three databases on a logarithmic scale."}
+{"caption": "Read query benchmark", "description": "Grouped bar chart comparing SELECT, JOIN and aggregation latency on a logarithmic scale."}
